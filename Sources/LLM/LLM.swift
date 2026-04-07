@@ -120,21 +120,30 @@ public actor LLMCore {
     
     func prepareContext(for input: String) -> Bool {
         guard !input.isEmpty else { return false }
-        
+
         tokenBuffer.removeAll()
-        
+
+        // Clear sequence 0's KV cache before re-decoding from position 0.
+        // Without this, the second and subsequent generations fail with:
+        //   "the last position stored in the KV cache for sequence 0 is X = N
+        //    the tokens have a starting position of Y = 0
+        //    sequence positions must remain consecutive: Y = X + 1"
+        // Each call to respond(to:) re-tokenizes the full preprocessed prompt
+        // (which already includes history), so we need a clean cache slate.
+        llama_memory_seq_rm(llama_get_memory(context), 0, -1, -1)
+
         var tokens = encode(input)
         if tokens.last == nullToken { tokens.removeLast() }
-        
+
         let initialCount = tokens.count
         guard maxTokenCount > initialCount else { return false }
-        
+
         clearBatch()
         for (i, token) in tokens.enumerated() {
             addToBatch(token: token, pos: Int32(i), isLogit: i == initialCount - 1)
         }
         guard llama_decode(context, batch) == 0 else { return false }
-        
+
         currentTokenCount = Int32(initialCount)
         shouldContinuePredicting = true
         return true
