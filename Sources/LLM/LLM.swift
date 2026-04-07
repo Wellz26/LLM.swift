@@ -23,7 +23,7 @@ public actor LLMCore {
     private let totalTokenCount: Int
     private lazy var newlineToken: Token = llama_vocab_nl(vocab)
     private lazy var endToken: Token = llama_vocab_eos(vocab)
-    private lazy var nullToken: Token = encode("\0", shouldAddBOS: false).first!
+    private lazy var nullToken: Token = encode("\0", shouldAddBOS: false).first ?? Token.min
     
     private var stopSequenceTokens: [Token]?
     private var tokenBuffer: [Token] = []
